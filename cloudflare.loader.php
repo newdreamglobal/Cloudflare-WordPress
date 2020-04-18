@@ -3,6 +3,7 @@
 require_once __DIR__.'/vendor/autoload.php';
 
 use CloudFlare\IpRewrite;
+use CF\WordPress\CloudFlareAlternatives;
 
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
@@ -26,6 +27,8 @@ try {
 
 // Initiliaze Hooks class which contains WordPress hook functions
 $cloudflareHooks = new \CF\WordPress\Hooks();
+
+$cloudflareAlternatives = new \CF\WordPress\CloudFlareAlternatives();
 
 add_action('plugins_loaded', array($cloudflareHooks, 'getCloudflareRequestJSON'));
 
@@ -79,6 +82,12 @@ foreach ($cloudflarePurgeEverythingActions as $action) {
  *
  * add_filter('cloudflare_purge_by_url', your_cloudflare_url_filter, 10, 2);
  */
+
+ /**
+ * Filter to purge alternatives configured cloudflare sites
+ */
+add_filter('cloudflare_clearAlternativeSites',  array($cloudflareAlternatives, "clearAlternativeSites" ), 11, 2);
+
 $cloudflarePurgeURLActions = array(
     'deleted_post',                     // Delete a post
     'edit_post',                        // Edit a post - includes leaving comments

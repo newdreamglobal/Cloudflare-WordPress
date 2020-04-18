@@ -152,6 +152,13 @@ class Hooks
             }
 
             $urls = $this->getPostRelatedLinks($postId);
+            //check if hostname configured on plugin is differente on the host the user is working
+            //if so, change the hostname of urls to the host of CF is configured
+            $realHostConfigured = parse_url($urls[0], PHP_URL_HOST);                     //by dares
+            if($realHostConfigured != $wpDomain){                                        //by dares
+                $urls = $this->changeDomainPurged($urls, $wpDomain, $realHostConfigured);//by dares
+            }
+
             $urls = apply_filters('cloudflare_purge_by_url', $urls, $postId);
 
             $zoneTag = $this->api->getZoneTag($wpDomain);
@@ -162,6 +169,8 @@ class Hooks
                 $isOK = ($isOK) ? 'succeeded' : 'failed';
                 $this->logger->debug("List of URLs purged are: " . print_r($urls, true));
                 $this->logger->debug("purgeCacheByRevelantURLs " . $isOK);
+
+                $urls = apply_filters('cloudflare_clearAlternativeSites', $urls, $realHostConfigured); //by dares
             }
         }
     }
@@ -266,5 +275,19 @@ class Hooks
         if (isset($_GET['action']) && $_GET['action'] === self::WP_AJAX_ACTION) {
             $GLOBALS[self::CLOUDFLARE_JSON] = file_get_contents('php://input');
         }
+    }
+
+    /*
+    * Change domain of defined urls
+    * 
+    */
+    public function changeDomainPurged($urls, $searchHost,  $replaceHost){
+        
+        for($n=0;$n < count($urls); $n++){
+            $urls[$n] = str_replace($searchHost, $replaceHost, $urls[$n]);
+        }
+        
+        return $urls;
+
     }
 }
