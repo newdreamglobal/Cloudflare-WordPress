@@ -8,17 +8,22 @@ use CF\Integration;
 class CloudFlareAlternatives
 {
     protected $config;
+    protected $hasWarmup = false;
     protected $wordPressWrapper;
     protected $securityKey = 'the_secret_kingdom';
     const NDG_CF_SECRET_KEY = "newdream_secret_key_cf";
-    const WP_HOOKS_LOG = true;
+    const WP_HOOKS_LOG = false;
     const WP_HOOKS_LOGPATH = "/www/wwwroot/{dir-host}/wp-content/cf.log"; 
+    
 
     public function __construct()
     {
         $this->config = new Integration\DefaultConfig(file_get_contents(CLOUDFLARE_PLUGIN_DIR.'config.js', true));    
         $this->wordPressWrapper = new WordPressWrapper();
         $this->securityKey = get_option(self::NDG_CF_SECRET_KEY, "empty");
+
+        
+        $this->hasWarmup = $this->config->getValue('warmup');
         
     }
 
@@ -70,6 +75,14 @@ class CloudFlareAlternatives
             $this->cfLog("\n" . $fields);
 
             $purged = $this->clearSiteCacheUrls($site, $fields);
+
+            if($purged){
+                if($this->hasWarmup){
+                    $warmuUrl = str_replace($domainActive,$site["host"],$urls[count($urls)-1]); //get the last element of the list, that one is the url of page
+                    $this->warmUpUrl($warmuUrl);
+                }
+                
+            }
             
         }
         $this->cfLog("\n======================== ======================== ========================");
@@ -111,7 +124,10 @@ class CloudFlareAlternatives
 
             $this->cfLog($cf_zone . " | " . $cf_email . " | " . $cf_apikey );
 
-            //return;
+            if($cf_zone=="" || $cf_email=="" || $cf_apikey==""){
+                return false;
+            }
+
 
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, "https://api.cloudflare.com/client/v4/zones/" . $cf_zone . "/purge_cache");
@@ -166,6 +182,24 @@ class CloudFlareAlternatives
         }
     
         return $output;
+    }
+
+
+
+    protected function warmUpUrl($url){
+
+        $ch = curl_init();
+        $timeout = 10;
+
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($ch, CURLOPT_HEADER, TRUE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+        curl_setopt($ch, CURLOPT_TIMEOUT,$timeout);
+        $response = curl_exec($ch);
+
+        curl_close($ch);
+
     }
 
 }

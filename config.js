@@ -26,6 +26,7 @@
     "locale": "en", 
     "integrationName": "wordpress", 
     "version": "3.4.1",
+    "warmup": false,
     "alternativeSites":[
         {
             "apiKey": "{internal-encoded-cf-apikey}",
