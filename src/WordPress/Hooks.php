@@ -201,16 +201,16 @@ class Hooks
         // Author URL
         array_push(
             $listofurls,
-            get_author_posts_url(get_post_field('post_author', $postId)),
-            get_author_feed_link(get_post_field('post_author', $postId))
+            get_author_posts_url(get_post_field('post_author', $postId))/*,
+            get_author_feed_link(get_post_field('post_author', $postId))*/
         );
 
         // Archives and their feeds
         if (get_post_type_archive_link($postType) == true) {
             array_push(
                 $listofurls,
-                get_post_type_archive_link($postType),
-                get_post_type_archive_feed_link($postType)
+                get_post_type_archive_link($postType)/*,
+                get_post_type_archive_feed_link($postType)*/
             );
         }
 
@@ -225,7 +225,7 @@ class Hooks
         }
 
         // Feeds
-        array_push(
+        /*array_push(
             $listofurls,
             get_bloginfo_rss('rdf_url'),
             get_bloginfo_rss('rss_url'),
@@ -233,7 +233,7 @@ class Hooks
             get_bloginfo_rss('atom_url'),
             get_bloginfo_rss('comments_rss2_url'),
             get_post_comments_feed_link($postId)
-        );
+        );*/ //by dares
 
         // Home Page and (if used) posts page
         array_push($listofurls, home_url('/'));
@@ -243,11 +243,12 @@ class Hooks
         }
 
         // Purge https and http URLs
-        if (function_exists('force_ssl_admin') && force_ssl_admin()) {
+        //commented by dares
+        /*if (function_exists('force_ssl_admin') && force_ssl_admin()) {
             $listofurls = array_merge($listofurls, str_replace('https://', 'http://', $listofurls));
         } elseif (!is_ssl() && function_exists('force_ssl_content') && force_ssl_content()) {
             $listofurls = array_merge($listofurls, str_replace('http://', 'https://', $listofurls));
-        }
+        }*/
 
         return $listofurls;
     }
