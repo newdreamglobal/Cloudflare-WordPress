@@ -8,22 +8,18 @@ use CF\Integration;
 class CloudFlareAlternatives
 {
     protected $config;
-    protected $hasWarmup = false;
     protected $wordPressWrapper;
     protected $securityKey = 'the_secret_kingdom';
     const NDG_CF_SECRET_KEY = "newdream_secret_key_cf";
-    const WP_HOOKS_LOG = false;
+    const WP_HOOKS_LOG = true;
     const WP_HOOKS_LOGPATH = "/www/wwwroot/{dir-host}/wp-content/cf.log"; 
-    
+    const CF_PURGE_LIMIT_URLS = 30;
 
     public function __construct()
     {
         $this->config = new Integration\DefaultConfig(file_get_contents(CLOUDFLARE_PLUGIN_DIR.'config.js', true));    
         $this->wordPressWrapper = new WordPressWrapper();
         $this->securityKey = get_option(self::NDG_CF_SECRET_KEY, "empty");
-
-        
-        $this->hasWarmup = $this->config->getValue('warmup');
         
     }
 
@@ -60,30 +56,23 @@ class CloudFlareAlternatives
 
         $this->cfLog("\n======================== clearAlternativeSites ========================");
         $sites = $this->config->getValue('alternativeSites');
+        if(!isEmpty($sites) && !is_null($sites)){
+            foreach($sites as $site){
 
-      
-        foreach($sites as $site){
+                $this->cfLog("\nSite: ". $site["host"] . " ========================");            
 
+                foreach(array_chunk($urls, self::CF_PURGE_LIMIT_URLS) as $fileGroup) {
 
-            $this->cfLog("\nSite: ". $site["host"] . " ========================");
-
-            
-            $cacheCFUrl = $this->convertUrlsToCF($urls,$domainActive, $site["host"]);
-            $fields = '{"files": [' . $cacheCFUrl . ']}';
-
-
-            $this->cfLog("\n" . $fields);
-
-            $purged = $this->clearSiteCacheUrls($site, $fields);
-
-            if($purged){
-                if($this->hasWarmup){
-                    $warmuUrl = str_replace($domainActive,$site["host"],$urls[count($urls)-1]); //get the last element of the list, that one is the url of page
-                    $this->warmUpUrl($warmuUrl);
-                }
+                    $cacheCFUrl = $this->convertUrlsToCF($fileGroup,$domainActive, $site["host"]);
+                    $fields = '{"files": [' . $cacheCFUrl . ']}';
+                    $this->cfLog("\n" . $fields);
+                    $purged = $this->clearSiteCacheUrls($site, $fields);                
+                }           
                 
             }
-            
+        }else{
+            $this->cfLog("\nERROR: Not key 'alternativeSites' in ./config.js");
+
         }
         $this->cfLog("\n======================== ======================== ========================");
 
@@ -118,16 +107,20 @@ class CloudFlareAlternatives
     public function clearSiteCacheUrls($config, $fields){
         try{
 
+            if(isEmpty($this->securityKey) || is_null($this->securityKey)){
+                
+                $this->cfLog("ERROR: not security key '{self::NDG_CF_SECRET_KEY}'defined in wp_option table");
+                return false;
+            }
+            
+
             $cf_zone = $this->tokenCrypt($config["zoneId"], "d");
             $cf_email = $this->tokenCrypt($config["email"], "d");
             $cf_apikey = $this->tokenCrypt($config["apiKey"], "d");
 
             $this->cfLog($cf_zone . " | " . $cf_email . " | " . $cf_apikey );
 
-            if($cf_zone=="" || $cf_email=="" || $cf_apikey==""){
-                return false;
-            }
-
+            //return;
 
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, "https://api.cloudflare.com/client/v4/zones/" . $cf_zone . "/purge_cache");
@@ -182,24 +175,6 @@ class CloudFlareAlternatives
         }
     
         return $output;
-    }
-
-
-
-    protected function warmUpUrl($url){
-
-        $ch = curl_init();
-        $timeout = 10;
-
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-        curl_setopt($ch, CURLOPT_HEADER, TRUE);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
-        curl_setopt($ch, CURLOPT_TIMEOUT,$timeout);
-        $response = curl_exec($ch);
-
-        curl_close($ch);
-
     }
 
 }
