@@ -58,7 +58,7 @@ class CloudFlareAlternatives
 
         $this->cfLog("\n======================== clearAlternativeSites ========================");
         $sites = $this->config->getValue('alternativeSites');
-        if(!isEmpty($sites) && !is_null($sites)){
+        if(!empty($sites) && !is_null($sites)){
             foreach($sites as $site){
                 $purged = false;
                 $this->cfLog("\nSite: ". $site["host"] . " ========================");            
@@ -120,7 +120,7 @@ class CloudFlareAlternatives
     public function clearSiteCacheUrls($config, $fields){
         try{
 
-            if(isEmpty($this->securityKey) || is_null($this->securityKey)){
+            if(empty($this->securityKey) || is_null($this->securityKey)){
                 
                 $this->cfLog("ERROR: not security key '{self::NDG_CF_SECRET_KEY}'defined in wp_option table");
                 return false;
