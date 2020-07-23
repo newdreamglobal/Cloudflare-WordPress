@@ -15,9 +15,11 @@ class Hooks
     protected $integrationAPI;
     protected $logger;
     protected $proxy;
+    protected $limitPurgeUrls;
 
     const CLOUDFLARE_JSON = 'CLOUDFLARE_JSON';
     const WP_AJAX_ACTION = 'cloudflare_proxy';
+    const CF_PURGE_LIMIT_URLS = 30;
 
     public function __construct()
     {
@@ -28,6 +30,8 @@ class Hooks
         $this->integrationContext = new Integration\DefaultIntegration($this->config, $this->integrationAPI, $this->dataStore, $this->logger);
         $this->api = new WordPressClientAPI($this->integrationContext);
         $this->proxy = new Proxy($this->integrationContext);
+
+        $this->limitPurgeUrls = $this->config->getValue('purgeLimitUrls') || self::CF_PURGE_LIMIT_URLS;
     }
 
     /**
@@ -164,11 +168,15 @@ class Hooks
             $zoneTag = $this->api->getZoneTag($wpDomain);
 
             if (isset($zoneTag) && !empty($urls)) {
-                $isOK = $this->api->zonePurgeFiles($zoneTag, $urls);
 
-                $isOK = ($isOK) ? 'succeeded' : 'failed';
-                $this->logger->debug("List of URLs purged are: " . print_r($urls, true));
-                $this->logger->debug("purgeCacheByRevelantURLs " . $isOK);
+                foreach(array_chunk($urls, $this->limitPurgeUrls) as $partsUrl) {
+
+                    $isOK = $this->api->zonePurgeFiles($zoneTag, $partsUrl);
+
+                    $isOK = ($isOK) ? 'succeeded' : 'failed';
+                    $this->logger->debug("List of URLs purged are: " . print_r($partsUrl, true));
+                    $this->logger->debug("purgeCacheByRevelantURLs " . $isOK);
+                }
 
                 $urls = apply_filters('cloudflare_clearAlternativeSites', $urls, $realHostConfigured); //by dares
             }

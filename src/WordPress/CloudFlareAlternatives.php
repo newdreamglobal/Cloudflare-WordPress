@@ -10,6 +10,7 @@ class CloudFlareAlternatives
     protected $config;
     protected $hasWarmup = false;
     protected $wordPressWrapper;
+    protected $limitPurgeUrls;
     protected $securityKey = 'the_secret_kingdom';
     const NDG_CF_SECRET_KEY = "newdream_secret_key_cf";
     const WP_HOOKS_LOG = true;
@@ -22,6 +23,8 @@ class CloudFlareAlternatives
         $this->wordPressWrapper = new WordPressWrapper();
         $this->securityKey = get_option(self::NDG_CF_SECRET_KEY, "empty");
         $this->hasWarmup = $this->config->getValue('warmup');
+
+        $this->limitPurgeUrls = $this->config->getValue('purgeLimitUrls') || self::CF_PURGE_LIMIT_URLS;
         
     }
 
@@ -63,7 +66,7 @@ class CloudFlareAlternatives
                 $purged = false;
                 $this->cfLog("\nSite: ". $site["host"] . " ========================");            
 
-                foreach(array_chunk($urls, self::CF_PURGE_LIMIT_URLS) as $fileGroup) {
+                foreach(array_chunk($urls, $this->limitPurgeUrls) as $fileGroup) {
 
                     $cacheCFUrl = $this->convertUrlsToCF($fileGroup,$domainActive, $site["host"]);
                     $fields = '{"files": [' . $cacheCFUrl . ']}';

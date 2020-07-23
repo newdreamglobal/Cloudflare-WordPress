@@ -27,6 +27,7 @@
     "integrationName": "wordpress", 
     "version": "3.4.1",
     "warmup": false,
+    "purgeLimitUrls": 30,
     "alternativeSites":[
         {
             "apiKey": "{internal-encoded-cf-apikey}",
