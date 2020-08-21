@@ -114,6 +114,11 @@ class Hooks
     public function purgeCacheEverything()
     {
         if ($this->isPluginSpecificCacheEnabled()) {
+
+            if($this->did_purge("purgeCacheEverything")){ //by dares
+                return;
+            }
+
             $wpDomainList = $this->integrationAPI->getDomainList();
             if (count($wpDomainList) > 0) {
                 $wpDomain = $wpDomainList[0];
@@ -133,6 +138,11 @@ class Hooks
     public function purgeCacheByRevelantURLs($postId)
     {
         if ($this->isPluginSpecificCacheEnabled()) {
+
+            if($this->did_purge($postId)){ //by dares
+                return;
+            }
+
             $wpDomainList = $this->integrationAPI->getDomainList();
             if (count($wpDomainList) <= 0) {
                 return;
@@ -298,5 +308,23 @@ class Hooks
         
         return $urls;
 
+    }
+
+    /*
+     * check if already ran a purge on this post/key
+     * we set a 15 seconds live cache to avoid repeat same purge twice
+     * but allowing to continue purge on a next try
+     */
+    public function did_purge($keyName){
+
+        $cache_name = "cf_purge_" . $keyName . "_call";
+        $counts = wp_cache_get($cache_name, 'cfpurge');                
+        if( !$counts || is_null($counts)){
+            
+            wp_cache_set($cache_name, 1, 'cfpurge',15);
+            return false;            
+        }
+
+        return true;
     }
 }
