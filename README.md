@@ -1,7 +1,9 @@
 # Cloudflare’s Plugin for WordPress With Alternative Purged Hosts optimization
 
-This fork is to adapt the plugin to allow a user to configure other CF hosts to purge at the same time and the sames urls the main configuration but
-on alternatives hosts.
+This fork is to adapt the plugin to allow improvements.
+- user can configure other CF hosts to purge at the same time and the sames urls the main configuration but on alternatives hosts.
+- getPurgeConditionalLinks: purge urls based on a conditional timestamp period and not purge always the sames each after update post
+- did_purge: check if already ran a purge on this post/key because of many calls to purgeCacheByRevelantURLs or purgeCacheEverything WP does for the same post update or them change.
 
 A site could perhaps manage multiple hosts with the same information and need tu update all the sites at the same time.
 
