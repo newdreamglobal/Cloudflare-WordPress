@@ -165,7 +165,9 @@ class Hooks
                 return;
             }
 
-            $urls = $this->getPostRelatedLinks($postId);
+            //$urls = $this->getPostRelatedLinks($postId);
+            $urls = $this->getPurgeConditionalLinks($postId); //by dares
+            
             //check if hostname configured on plugin is differente on the host the user is working
             //if so, change the hostname of urls to the host of CF is configured
             $realHostConfigured = parse_url($urls[0], PHP_URL_HOST);                     //by dares
@@ -311,10 +313,10 @@ class Hooks
     }
 
     /*
-     * check if already ran a purge on this post/key
-     * we set a 15 seconds live cache to avoid repeat same purge twice
-     * but allowing to continue purge on a next try
-     */
+    * check if already ran a purge on this post/key
+    * we set a 15 seconds live cache to avoid repeat same purge twice
+    * but allowing to continue purge on a next try
+    */
     public function did_purge($keyName){
 
         $cache_name = "cf_purge_" . $keyName . "_call";
@@ -326,5 +328,96 @@ class Hooks
         }
 
         return true;
+    }
+
+
+    /*
+    * check each url and validate with a cached timestamp
+    * if we want to purge it or not
+    * to avoid repeating same purge on each post update unnecessary within defined intervals
+    */
+    public function getPurgeConditionalLinks($postId)
+    {
+        $listofurls = array();
+        $postType = get_post_type($postId);
+
+        //Purge taxonomies terms URLs
+        $postTypeTaxonomies = get_object_taxonomies($postType);
+
+        foreach ($postTypeTaxonomies as $taxonomy) {
+            $terms = get_the_terms($postId, $taxonomy);
+
+            if (empty($terms) || is_wp_error($terms)) {
+                continue;
+            }
+
+            foreach ($terms as $term) {
+                $termLink = get_term_link($term);
+                if (!is_wp_error($termLink)) {
+                    if($this->need_purge_url($termLink, "category")){
+                        array_push($listofurls, $termLink);
+                    }
+                }
+            }
+        }
+
+        // Author URL
+        $linkAuthor = get_author_posts_url(get_post_field('post_author', $postId));
+        if($this->need_purge_url($termLink, "author")){
+
+            array_push(
+                $listofurls,
+                $linkAuthor/*,
+                get_author_feed_link(get_post_field('post_author', $postId))*/
+            );
+        }
+
+        // Archives and their feeds
+        if (get_post_type_archive_link($postType) == true) {
+            if($this->need_purge_url(get_post_type_archive_link($postType), "feed")){
+                array_push(
+                    $listofurls,
+                    get_post_type_archive_link($postType),
+                    get_post_type_archive_feed_link($postType)
+                );
+            }
+        }
+
+        // Post URL
+        $postLink = get_permalink($postId);
+        if($this->need_purge_url($postLink, "post")){
+            array_push($listofurls, $postLink);
+        }
+
+        // Also clean URL for trashed post.
+        if (get_post_status($postId) == 'trash') {
+            $trashPost = get_permalink($postId);
+            $trashPost = str_replace('__trashed', '', $trashPost);
+            array_push($listofurls, $trashPost, $trashPost.'feed/');
+        }
+
+        // Feeds
+        /*array_push(
+            $listofurls,
+            get_bloginfo_rss('rdf_url'),
+            get_bloginfo_rss('rss_url'),
+            get_bloginfo_rss('rss2_url'),
+            get_bloginfo_rss('atom_url'),
+            get_bloginfo_rss('comments_rss2_url'),
+            get_post_comments_feed_link($postId)
+        );*/ //by dares
+
+        // Home Page and (if used) posts page
+        $homeUrl = home_url('/');
+        if($this->need_purge_url($homeUrl, "home")){
+            array_push($listofurls, $homeUrl);
+
+            $pageLink = get_permalink(get_option('page_for_posts'));
+            if (is_string($pageLink) && !empty($pageLink) && get_option('show_on_front') == 'page') {
+                array_push($listofurls, $pageLink);
+            }
+        }
+
+        return $listofurls;
     }
 }
