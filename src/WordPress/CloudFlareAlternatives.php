@@ -58,7 +58,8 @@ class CloudFlareAlternatives
     * 
     */
     public function clearAlternativeSites($urls, $domainActive){
-
+        $warmuUrl="";
+        $purged = true;
         $this->cfLog("\n======================== clearAlternativeSites ========================");
         $sites = $this->config->getValue('alternativeSites');
         if(!empty($sites) && !is_null($sites)){
@@ -66,28 +67,32 @@ class CloudFlareAlternatives
                 $purged = false;
                 $this->cfLog("\nSite: ". $site["host"] . " ========================");            
 
+                //purge by groups of $this->limitPurgeUrls urls to avoid limits of CF
                 foreach(array_chunk($urls, $this->limitPurgeUrls) as $fileGroup) {
 
                     $cacheCFUrl = $this->convertUrlsToCF($fileGroup,$domainActive, $site["host"]);
                     $fields = '{"files": [' . $cacheCFUrl . ']}';
                     $this->cfLog("\n" . $fields);
                     $purged = $this->clearSiteCacheUrls($site, $fields);
-
                     
-                }  
-                
-                if($purged){
-                    if($this->hasWarmup){
-                        $warmuUrl = str_replace($domainActive,$site["host"],$urls[count($urls)-1]); //get the last element of the list, that one is the url of page
-                        $this->warmUpUrl($warmuUrl);
-                    }    
                 }
+
+                if($purged && $this->hasWarmup){
+                    $warmuUrl = str_replace($domainActive,$site["host"],$urls[count($urls)-1]); //get the last element of the list, that one is the url of page
+                    $this->warmUpUrl($warmuUrl);
+                }  
                 
             }
 
            
         }else{
-            $this->cfLog("\nERROR: Not key 'alternativeSites' in ./config.js");
+
+            if($purged && $this->hasWarmup){
+                $warmuUrl = $urls[count($urls)-1]; //get the last element of the list, that one is the url of page
+                $this->warmUpUrl($warmuUrl);
+            }  
+
+            $this->cfLog("\nINFO: Not key 'alternativeSites' in ./config.js");
 
         }
         $this->cfLog("\n======================== ======================== ========================");
