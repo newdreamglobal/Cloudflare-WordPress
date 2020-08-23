@@ -21,6 +21,13 @@ class Hooks
     const WP_AJAX_ACTION = 'cloudflare_proxy';
     const CF_PURGE_LIMIT_URLS = 30;
 
+    const CF_PURGE_URL_TIMEOUT_POST = 30;           //30s
+    const CF_PURGE_URL_TIMEOUT_AUTHOR = 4*60*60;    //4h
+    const CF_PURGE_URL_TIMEOUT_FEED = 24*60*60;     //24h
+    const CF_PURGE_URL_TIMEOUT_CATEGORY = 2*60*60;  //2h
+    const CF_PURGE_URL_TIMEOUT_HOME = 30*60;        //30m
+    
+
     public function __construct()
     {
         $this->config = new Integration\DefaultConfig(file_get_contents(CLOUDFLARE_PLUGIN_DIR.'config.js', true));
@@ -137,6 +144,7 @@ class Hooks
 
     public function purgeCacheByRevelantURLs($postId)
     {
+      
         if ($this->isPluginSpecificCacheEnabled()) {
 
             if($this->did_purge($postId)){ //by dares
@@ -167,7 +175,7 @@ class Hooks
 
             //$urls = $this->getPostRelatedLinks($postId);
             $urls = $this->getPurgeConditionalLinks($postId); //by dares
-            
+
             //check if hostname configured on plugin is differente on the host the user is working
             //if so, change the hostname of urls to the host of CF is configured
             $realHostConfigured = parse_url($urls[0], PHP_URL_HOST);                     //by dares
@@ -181,12 +189,23 @@ class Hooks
 
             if (isset($zoneTag) && !empty($urls)) {
 
-                foreach(array_chunk($urls, $this->limitPurgeUrls) as $partsUrl) {
+                $this->logger->debug("URLs: " .count($urls) .  " > " . $this->limitPurgeUrls);
 
-                    $isOK = $this->api->zonePurgeFiles($zoneTag, $partsUrl);
+                if(count($urls) > $this->limitPurgeUrls){
 
+                    foreach(array_chunk($urls, $this->limitPurgeUrls) as $partsUrl) {
+
+                        $isOK = $this->api->zonePurgeFiles($zoneTag, $partsUrl);
+    
+                        $isOK = ($isOK) ? 'succeeded' : 'failed';
+                        $this->logger->debug("List of URLs purged are: " . print_r($partsUrl, true));
+                        $this->logger->debug("purgeCacheByRevelantURLs " . $isOK);
+                    }
+
+                }else{
+                    $isOK = $this->api->zonePurgeFiles($zoneTag, $urls);
                     $isOK = ($isOK) ? 'succeeded' : 'failed';
-                    $this->logger->debug("List of URLs purged are: " . print_r($partsUrl, true));
+                    $this->logger->debug("List of URLs purged are: " . print_r($urls, true));
                     $this->logger->debug("purgeCacheByRevelantURLs " . $isOK);
                 }
 
@@ -194,6 +213,9 @@ class Hooks
             }
         }
     }
+
+
+
 
     public function getPostRelatedLinks($postId)
     {
@@ -226,13 +248,13 @@ class Hooks
         );
 
         // Archives and their feeds
-        if (get_post_type_archive_link($postType) == true) {
+        /*if (get_post_type_archive_link($postType) == true) {
             array_push(
                 $listofurls,
-                get_post_type_archive_link($postType)/*,
-                get_post_type_archive_feed_link($postType)*/
+                get_post_type_archive_link($postType),
+                get_post_type_archive_feed_link($postType)
             );
-        }
+        }*/
 
         // Post URL
         array_push($listofurls, get_permalink($postId));
@@ -273,69 +295,7 @@ class Hooks
         return $listofurls;
     }
 
-    protected function isPluginSpecificCacheEnabled()
-    {
-        $cacheSettingObject = $this->dataStore->getPluginSetting(\CF\API\Plugin::SETTING_PLUGIN_SPECIFIC_CACHE);
-        $cacheSettingValue = $cacheSettingObject[\CF\API\Plugin::SETTING_VALUE_KEY];
 
-        return isset($cacheSettingValue) && $cacheSettingValue !== false && $cacheSettingValue !== 'off';
-    }
-
-    public function http2ServerPushInit()
-    {
-        HTTP2ServerPush::init();
-    }
-
-    /*
-     * php://input can only be read once before PHP 5.6, try to grab it ONLY if the request
-     * is coming from the cloudflare proxy.  We store it in a global so \CF\WordPress\Proxy
-     * can act on the request body later on in the script execution.
-     */
-    public function getCloudflareRequestJSON()
-    {
-        if (isset($_GET['action']) && $_GET['action'] === self::WP_AJAX_ACTION) {
-            $GLOBALS[self::CLOUDFLARE_JSON] = file_get_contents('php://input');
-        }
-    }
-
-    /*
-    * Change domain of defined urls
-    * 
-    */
-    public function changeDomainPurged($urls, $searchHost,  $replaceHost){
-        
-        for($n=0;$n < count($urls); $n++){
-            $urls[$n] = str_replace($searchHost, $replaceHost, $urls[$n]);
-        }
-        
-        return $urls;
-
-    }
-
-    /*
-    * check if already ran a purge on this post/key
-    * we set a 15 seconds live cache to avoid repeat same purge twice
-    * but allowing to continue purge on a next try
-    */
-    public function did_purge($keyName){
-
-        $cache_name = "cf_purge_" . $keyName . "_call";
-        $counts = wp_cache_get($cache_name, 'cfpurge');                
-        if( !$counts || is_null($counts)){
-            
-            wp_cache_set($cache_name, 1, 'cfpurge',15);
-            return false;            
-        }
-
-        return true;
-    }
-
-
-    /*
-    * check each url and validate with a cached timestamp
-    * if we want to purge it or not
-    * to avoid repeating same purge on each post update unnecessary within defined intervals
-    */
     public function getPurgeConditionalLinks($postId)
     {
         $listofurls = array();
@@ -382,13 +342,7 @@ class Hooks
                 );
             }
         }
-
-        // Post URL
-        $postLink = get_permalink($postId);
-        if($this->need_purge_url($postLink, "post")){
-            array_push($listofurls, $postLink);
-        }
-
+        
         // Also clean URL for trashed post.
         if (get_post_status($postId) == 'trash') {
             $trashPost = get_permalink($postId);
@@ -418,6 +372,101 @@ class Hooks
             }
         }
 
+        // Post URL
+        $postLink = get_permalink($postId);
+        if($this->need_purge_url($postLink, "post")){
+            array_push($listofurls, $postLink);
+        }
+
         return $listofurls;
+    }
+
+    protected function isPluginSpecificCacheEnabled()
+    {
+        $cacheSettingObject = $this->dataStore->getPluginSetting(\CF\API\Plugin::SETTING_PLUGIN_SPECIFIC_CACHE);
+        $cacheSettingValue = $cacheSettingObject[\CF\API\Plugin::SETTING_VALUE_KEY];
+
+        return isset($cacheSettingValue) && $cacheSettingValue !== false && $cacheSettingValue !== 'off';
+    }
+
+    public function http2ServerPushInit()
+    {
+        HTTP2ServerPush::init();
+    }
+
+    /*
+     * php://input can only be read once before PHP 5.6, try to grab it ONLY if the request
+     * is coming from the cloudflare proxy.  We store it in a global so \CF\WordPress\Proxy
+     * can act on the request body later on in the script execution.
+     */
+    public function getCloudflareRequestJSON()
+    {
+        if (isset($_GET['action']) && $_GET['action'] === self::WP_AJAX_ACTION) {
+            $GLOBALS[self::CLOUDFLARE_JSON] = file_get_contents('php://input');
+        }
+    }
+
+    /*
+    * Change domain of defined urls
+    * 
+    */
+    public function changeDomainPurged($urls, $searchHost,  $replaceHost){
+        
+        for($n=0;$n < count($urls); $n++){
+            $urls[$n] = str_replace($searchHost, $replaceHost, $urls[$n]);
+        }
+        
+        return $urls;
+
+    }
+
+    public function did_purge($postId){
+
+        $cache_name = "cf_purge_" . $postId . "_call";
+        $counts = wp_cache_get($cache_name, 'cfpurge');                
+        if( !$counts || is_null($counts)){
+            
+            wp_cache_set($cache_name, 1, 'cfpurge',15);
+            return false;
+            
+        }
+
+        return true;
+    }
+
+    public function need_purge_url($url, $type){
+        
+
+        $re = "/[^-a-z0-9\\/]+/i";
+        $keySlug=  preg_replace($re, $subst, $url);
+        $cache_name = "cf_schedule_" . $keySlug . "_purge";
+        $counts = wp_cache_get($cache_name, 'cfpurge');                
+        if( !$counts || is_null($counts)){
+
+            switch($type){
+                case "post":
+                    $timeToLive = self::CF_PURGE_URL_TIMEOUT_POST;
+                    break;
+                case "author":
+                    $timeToLive = self::CF_PURGE_URL_TIMEOUT_AUTHOR;
+                    break;
+                case "feed":
+                    $timeToLive = self::CF_PURGE_URL_TIMEOUT_FEED;
+                    break;
+                case "category":
+                    $timeToLive = self::CF_PURGE_URL_TIMEOUT_CATEGORY;
+                    break;  
+                default:
+                    $timeToLive = self::CF_PURGE_URL_TIMEOUT_HOME;                  
+                    break;
+            }
+
+            
+            wp_cache_set($cache_name, 1, 'cfpurge',$timeToLive);
+            return true;
+            
+        }
+
+        return false;
     }
 }
