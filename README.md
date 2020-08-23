@@ -5,7 +5,9 @@ This fork is to adapt the plugin to allow improvements.
 - getPurgeConditionalLinks: purge urls based on a conditional timestamp period and not purge always the sames each after update post
 - did_purge: check if already ran a purge on this post/key because of many calls to purgeCacheByRevelantURLs or purgeCacheEverything WP does for the same post update or them change.
 - added support to split request to purge urls based on CF limits of 30 urls on lower plans.
-
+- added purge by type of content delay timeouts to not purge on every saved post categories,homes,etc.
+- removed delete attachements condition to purge urls no cloudflare
+- 
 A site could perhaps manage multiple hosts with the same information and need tu update all the sites at the same time.
 
 The plugin has one config and we need to control where the working host is the same as the configured one and correct that on purge on main.
