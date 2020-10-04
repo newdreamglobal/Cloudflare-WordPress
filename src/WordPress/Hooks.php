@@ -412,8 +412,10 @@ class Hooks
     */
     public function changeDomainPurged($urls, $searchHost,  $replaceHost){
         
-        for($n=0;$n < count($urls); $n++){
-            $urls[$n] = str_replace($searchHost, $replaceHost, $urls[$n]);
+        if(strpos($replaceHost,$searchHost)===false){ //only if not a subdomain
+            for($n=0;$n < count($urls); $n++){
+                $urls[$n] = str_replace($searchHost, $replaceHost, $urls[$n]);
+            }
         }
         
         return $urls;
