@@ -203,6 +203,7 @@ class CloudFlareAlternatives
 
     protected function warmUpUrl($url){
 
+        $this->cfLog("warmUpUrl:" . $url);    
         $ch = curl_init();
         $timeout = 10;
 
