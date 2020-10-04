@@ -374,7 +374,7 @@ class Hooks
 
         // Post URL
         $postLink = get_permalink($postId);
-        if($this->need_purge_url($postLink, "post")){
+        if(!in_array($postLink, $listofurls) && $this->need_purge_url($postLink, "post")){
             array_push($listofurls, $postLink);
         }
 
@@ -438,11 +438,12 @@ class Hooks
 
     public function need_purge_url($url, $type){
         
-
-        $re = "/[^-a-z0-9\\/]+/i";
+        $subst="_";
+        $re = "/[^-a-z0-9_]+/i";
         $keySlug=  preg_replace($re, $subst, $url);
         $cache_name = "cf_schedule_" . $keySlug . "_purge";
-        $counts = wp_cache_get($cache_name, 'cfpurge');                
+        $counts = wp_cache_get($cache_name, 'cfpurge');
+
         if( !$counts || is_null($counts)){
 
             switch($type){
