@@ -36,6 +36,8 @@ class CloudFlareAlternatives
 
         if(!self::WP_HOOKS_LOG) return;
 
+        $msg = date_format(new \DateTime, 'Y-m-d H:i:s') . " " . $msg;
+
         @file_put_contents(self::WP_HOOKS_LOGPATH, $msg . "\n", FILE_APPEND | LOCK_EX);
     }
 
@@ -60,19 +62,19 @@ class CloudFlareAlternatives
     public function clearAlternativeSites($urls, $domainActive){
         $warmuUrl="";
         $purged = true;
-        $this->cfLog("\n======================== clearAlternativeSites ========================");
+        $this->cfLog("======================== clearAlternativeSites ========================");
         $sites = $this->config->getValue('alternativeSites');
         if(!empty($sites) && !is_null($sites)){
             foreach($sites as $site){
                 $purged = false;
-                $this->cfLog("\nSite: ". $site["host"] . " ========================");            
+                $this->cfLog("Site: ". $site["host"] . " ========================");            
 
                 //purge by groups of $this->limitPurgeUrls urls to avoid limits of CF
                 foreach(array_chunk($urls, $this->limitPurgeUrls) as $fileGroup) {
 
                     $cacheCFUrl = $this->convertUrlsToCF($fileGroup,$domainActive, $site["host"]);
                     $fields = '{"files": [' . $cacheCFUrl . ']}';
-                    $this->cfLog("\n" . $fields);
+                    $this->cfLog("" . $fields);
                     $purged = $this->clearSiteCacheUrls($site, $fields);
                     
                 }
@@ -92,10 +94,10 @@ class CloudFlareAlternatives
                 $this->warmUpUrl($warmuUrl);
             }  
 
-            $this->cfLog("\nINFO: Not key 'alternativeSites' in ./config.js");
+            $this->cfLog("INFO: Not key 'alternativeSites' in ./config.js");
 
         }
-        $this->cfLog("\n======================== ======================== ========================");
+        $this->cfLog("======================== ======================== ========================");
 
     }
 
