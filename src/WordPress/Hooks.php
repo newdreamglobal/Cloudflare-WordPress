@@ -16,6 +16,7 @@ class Hooks
     protected $logger;
     protected $proxy;
     protected $limitPurgeUrls;
+    protected $hasAlternativeSites;
 
     const CLOUDFLARE_JSON = 'CLOUDFLARE_JSON';
     const WP_AJAX_ACTION = 'cloudflare_proxy';
@@ -39,6 +40,7 @@ class Hooks
         $this->proxy = new Proxy($this->integrationContext);
 
         $this->limitPurgeUrls = $this->config->getValue('purgeLimitUrls') || self::CF_PURGE_LIMIT_URLS;
+        $this->hasAlternativeSites = (count($this->config->getValue('alternativeSites') || [])>0);
     }
 
     /**
@@ -122,6 +124,7 @@ class Hooks
     {
         if ($this->isPluginSpecificCacheEnabled()) {
 
+            //dont trigger more than one between 15m
             if($this->did_purge("purgeCacheEverything")){ //by dares
                 return;
             }
@@ -151,7 +154,7 @@ class Hooks
                 return;
             }
 
-            $wpDomainList = $this->integrationAPI->getDomainList();
+            $wpDomainList = $realHostConfigured = $this->integrationAPI->getDomainList();
             if (count($wpDomainList) <= 0) {
                 return;
             }
@@ -178,10 +181,13 @@ class Hooks
 
             //check if hostname configured on plugin is differente on the host the user is working
             //if so, change the hostname of urls to the host of CF is configured
-            $realHostConfigured = parse_url($urls[0], PHP_URL_HOST);                     //by dares
-            if($realHostConfigured != $wpDomain){                                        //by dares
-                $urls = $this->changeDomainPurged($urls, $wpDomain, $realHostConfigured);//by dares
+            if($this->hasAlternativeSites){
+                $realHostConfigured = parse_url($urls[0], PHP_URL_HOST);                     //by dares
+                if($realHostConfigured != $wpDomain){                                        //by dares
+                    $urls = $this->changeDomainPurged($urls, $wpDomain, $realHostConfigured);//by dares
+                }
             }
+           
 
             $urls = apply_filters('cloudflare_purge_by_url', $urls, $postId);
 
@@ -334,7 +340,7 @@ class Hooks
 
         // Archives and their feeds
         if (get_post_type_archive_link($postType) == true) {
-            if($this->need_purge_url(get_post_type_archive_link($postType), "feed")){
+            if($this->need_purge_url(get_post_type_archive_feed_link($postType), "feed")){
                 array_push(
                     $listofurls,
                     get_post_type_archive_link($postType),
