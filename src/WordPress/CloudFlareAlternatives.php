@@ -19,7 +19,7 @@ class CloudFlareAlternatives
 
     public function __construct()
     {
-        $this->config = new Integration\DefaultConfig(file_get_contents(CLOUDFLARE_PLUGIN_DIR.'config.js', true));    
+        $this->config = new Integration\DefaultConfig(file_get_contents(CLOUDFLARE_PLUGIN_DIR.'config.json', true));    
         $this->wordPressWrapper = new WordPressWrapper();
         $this->securityKey = get_option(self::NDG_CF_SECRET_KEY, "empty");
         $this->hasWarmup = $this->config->getValue('warmup');
