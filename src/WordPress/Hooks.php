@@ -40,7 +40,10 @@ class Hooks
         $this->proxy = new Proxy($this->integrationContext);
 
         $this->limitPurgeUrls = $this->config->getValue('purgeLimitUrls') || self::CF_PURGE_LIMIT_URLS;
-        $this->hasAlternativeSites = (count($this->config->getValue('alternativeSites') || [])>0);
+
+        $arrAlternativesSites = $this->config->getValue('alternativeSites');
+        $arrAlternativesSites = (is_array($arrAlternativesSites )?$arrAlternativesSites:array());        
+        $this->hasAlternativeSites = (count($arrAlternativesSites)>0);
     }
 
     /**
@@ -509,12 +512,13 @@ class Hooks
         $keySlug=  preg_replace($re, $subst, $url);
         $cache_name = "cf_schedule_" . $keySlug . "_purge";
         $counts = wp_cache_get($cache_name, 'cfpurge');
+        $timeToLive=0;
 
         if( !$counts || is_null($counts)){
 
             switch($type){
                 case "post":
-                case "attachment"
+                case "attachment":
                     $timeToLive = self::CF_PURGE_URL_TIMEOUT_POST;
                     break;
                 case "author":
